@@ -1,0 +1,1206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>TheraConnect Chatbot</title>
+</head>
+<body>
+
+<!-- Chatbot Toggle Button -->
+<div id="chat-toggle" 
+     role="button" 
+     aria-haspopup="dialog" 
+     aria-label="Open chat assistant" 
+     tabindex="0">
+  💬
+</div>
+
+<!-- Chat Window -->
+<div id="chat-window" 
+     role="dialog" 
+     aria-modal="true" 
+     aria-label="TheraConnect Chat Assistant" 
+     hidden>
+  
+  <div id="chat-header">
+    <div class="header-content">
+      <span class="header-title">TheraConnect Assistant</span>
+      <span class="header-status">Online</span>
+    </div>
+    <button id="chat-close" 
+            aria-label="Close chat" 
+            type="button">×</button>
+  </div>
+
+  <div id="chat-messages"></div>
+  
+  <div id="quick-replies"></div>
+
+  <div id="chat-input-container">
+    <textarea id="chat-input" 
+              placeholder="Type your message..." 
+              rows="1"
+              maxlength="500"></textarea>
+    <button id="chat-send" type="button">
+      <span>→</span>
+    </button>
+  </div>
+  
+  <div id="chat-footer">
+    <button id="clear-chat" type="button">Clear History</button>
+  </div>
+</div>
+
+<style>
+:root {
+  --brand: #7c4bd2;
+  --brand-hover: #6a3bc0;
+  --brand-light: #e9e3fb;
+  --bg: #fff;
+  --panel: #f9fafb;
+  --text: #1f2937;
+  --text-light: #6b7280;
+  --text-muted: #9ca3af;
+  --border: #e5e7eb;
+  --border-focus: #c7b5f5;
+  --success: #10b981;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.25);
+  --radius: 16px;
+  --radius-sm: 12px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Prevent body scroll when chat is open on mobile */
+body.chat-open {
+  overflow: hidden;
+  position: fixed;
+  width: 100%;
+}
+
+/* Toggle Button */
+#chat-toggle {
+  position: fixed;
+  top: 50%;
+  right: 24px;
+  transform: translateY(-50%);
+  width: 60px;
+  height: 60px;
+  background: var(--brand);
+  color: #fff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  cursor: pointer;
+  box-shadow: var(--shadow-lg);
+  z-index: 1000;
+  border: none;
+  transition: all 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+#chat-toggle:hover {
+  background: var(--brand-hover);
+  transform: translateY(-50%) scale(1.05);
+}
+
+#chat-toggle:active {
+  transform: translateY(-50%) scale(0.95);
+}
+
+/* Chat Window */
+#chat-window {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 420px;
+  max-width: 92vw;
+  height: 600px;
+  max-height: 85vh;
+  background: var(--bg);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  z-index: 1001;
+  display: none; /* Hidden by default */
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#chat-window[hidden] {
+  display: none !important;
+}
+
+/* Header */
+#chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--brand);
+  color: #fff;
+  padding: 16px;
+  flex-shrink: 0;
+}
+
+.header-title {
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.header-status {
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+.header-status::before {
+  content: '●';
+  color: var(--success);
+  margin-right: 4px;
+}
+
+#chat-close {
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 32px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 8px;
+}
+
+#chat-close:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* Messages */
+#chat-messages {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+  background: var(--panel);
+}
+
+#chat-messages::-webkit-scrollbar {
+  width: 6px;
+}
+
+#chat-messages::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+.msg {
+  display: flex;
+  margin-bottom: 12px;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.msg.user {
+  justify-content: flex-end;
+}
+
+.msg.bot {
+  justify-content: flex-start;
+}
+
+.bubble {
+  padding: 12px 16px;
+  border-radius: 18px;
+  max-width: 75%;
+  box-shadow: var(--shadow-sm);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  line-height: 1.5;
+  font-size: 14px;
+}
+
+.msg.user .bubble {
+  background: var(--brand);
+  color: #fff;
+  border-bottom-right-radius: 6px;
+}
+
+.msg.bot .bubble {
+  background: #fff;
+  color: var(--text);
+  border-bottom-left-radius: 6px;
+  border: 1px solid var(--border);
+}
+
+.msg.crisis .bubble {
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  color: #991b1b;
+  font-weight: 500;
+}
+
+.timestamp {
+  display: block;
+  font-size: 11px;
+  margin-top: 4px;
+  opacity: 0.7;
+}
+
+/* Typing Indicator */
+.typing-indicator {
+  display: flex;
+  gap: 4px;
+  padding: 4px 0;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  animation: bounce 1.4s infinite ease-in-out;
+}
+
+.dot:nth-child(1) { animation-delay: -0.32s; }
+.dot:nth-child(2) { animation-delay: -0.16s; }
+
+@keyframes bounce {
+  0%, 80%, 100% {
+    transform: scale(0.6);
+    opacity: 0.5;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Quick Replies */
+#quick-replies {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #fff;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+#quick-replies:empty {
+  display: none;
+}
+
+.chip {
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--text);
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.chip:hover {
+  border-color: var(--brand);
+  background: var(--brand-light);
+  color: var(--brand);
+}
+
+/* Input Area */
+#chat-input-container {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #fff;
+  border-top: 1px solid var(--border);
+  align-items: flex-end;
+  flex-shrink: 0;
+}
+
+#chat-input {
+  flex: 1;
+  padding: 10px 14px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  outline: none;
+  resize: none;
+  min-height: 42px;
+  max-height: 120px;
+  font-size: 14px;
+  line-height: 1.5;
+  font-family: inherit;
+  color: var(--text);
+}
+
+#chat-input:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px rgba(124, 75, 210, 0.1);
+}
+
+#chat-send {
+  background: var(--brand);
+  color: #fff;
+  border: none;
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+#chat-send:hover:not(:disabled) {
+  background: var(--brand-hover);
+}
+
+#chat-send:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Footer */
+#chat-footer {
+  padding: 8px 16px;
+  background: var(--panel);
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+#clear-chat {
+  background: transparent;
+  border: none;
+  color: var(--text-light);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 8px;
+}
+
+#clear-chat:hover {
+  background: var(--border);
+  color: var(--text);
+}
+
+/* Mobile */
+@media (max-width: 480px) {
+  #chat-window {
+    width: 100%;
+    height: 100%;
+    max-width: 100vw;
+    max-height: 100vh;
+    border-radius: 0;
+    top: 0;
+    left: 0;
+    transform: none;
+  }
+  
+  #chat-toggle {
+    width: 56px;
+    height: 56px;
+    right: 16px;
+    font-size: 24px;
+  }
+  
+  #chat-header {
+    padding: 14px 16px;
+  }
+  
+  .header-title {
+    font-size: 15px;
+  }
+  
+  #chat-messages {
+    padding: 12px;
+  }
+  
+  .bubble {
+    max-width: 85%;
+    font-size: 14px;
+    padding: 10px 14px;
+  }
+  
+  #quick-replies {
+    padding: 10px 12px;
+    gap: 6px;
+  }
+  
+  .chip {
+    font-size: 12px;
+    padding: 7px 12px;
+  }
+  
+  #chat-input-container {
+    padding: 10px 12px;
+  }
+  
+  #chat-input {
+    font-size: 16px; /* Prevents zoom on iOS */
+    padding: 10px 12px;
+  }
+  
+  #chat-send {
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+  }
+}
+
+/* iPhone 12 and similar (390px width) */
+@media (max-width: 390px) {
+  .bubble {
+    max-width: 90%;
+    font-size: 13px;
+  }
+  
+  .chip {
+    font-size: 11px;
+    padding: 6px 10px;
+  }
+}
+
+/* Landscape orientation on mobile */
+@media (max-height: 480px) and (orientation: landscape) {
+  #chat-window {
+    height: 100vh;
+    max-height: 100vh;
+  }
+  
+  #chat-messages {
+    height: calc(100vh - 200px);
+  }
+  
+  #chat-toggle {
+    right: 12px;
+  }
+}
+</style>
+
+<script>
+(function() {
+  'use strict';
+  
+  // Configuration
+  const CONFIG = {
+    TYPING_DELAY_MS: 600,
+    STORAGE_KEY: 'theraChat_v1'
+  };
+  
+  // Crisis Resources
+  const CRISIS_COOLDOWN_MS = 10 * 60 * 1000; // 10 minutes
+  
+  const CRISIS = {
+    full: [
+      "If you are in crisis, please call or text 988 to connect with a trained crisis counselor right now. If you're in immediate danger, dial 911.",
+      "You're not alone. The 988 Suicide & Crisis Lifeline is available 24/7 for free, confidential support. Please reach out now, or call 911 if you're in danger.",
+      "It sounds like you may be going through a lot. For immediate help, call, text, or chat 988. If you're in immediate danger, please call 911.",
+      "If you're feeling overwhelmed or unsafe, please connect with the 988 Lifeline for support from someone who can help. Call 911 if you're in danger."
+    ],
+    short: "Please reach out to 988 (call, text, or chat) for immediate support. If you're in danger, dial 911.",
+    violence: "If there is an immediate risk of violence or a weapon involved, please call 911 right now."
+  };
+  
+  // Responses Database
+  const RESPONSES = {
+    // FAQ
+    "what services": "We offer therapy, coaching, and support resources tailored to your needs.",
+    "services": "We offer therapy, coaching, and support resources tailored to your needs.",
+    "contact": "You can email us at hello@theraconnect.net or call (123) 456-7890.",
+    "where are you": "We're located at 400 NW Gilman Blvd. #787 Issaquah, WA 98027.",
+    "location": "Our main office is at 400 NW Gilman Blvd. #787 Issaquah, WA 98027.",
+    "hours": "We're open Monday through Friday, 9am to 6pm EST.",
+    "insurance": "Yes, we accept most major insurance plans. Contact us to verify yours.",
+    "appointments": "You can book an appointment through our website or by calling us directly.",
+    "pricing": "Pricing depends on service type and provider. Contact us for a detailed breakdown.",
+    
+    // Common questions people actually ask
+    "how much does it cost": "Pricing depends on service type and provider. Contact us for a detailed breakdown.",
+    "do you take my insurance": "Yes, we accept most major insurance plans. Contact us to verify yours.",
+    "can i afford": "Pricing depends on service type and provider. We also offer a sliding scale. Contact us for details.",
+    "what time are you open": "We're open Monday through Friday, 9am to 6pm EST.",
+    "how do i book": "You can book an appointment through our website or by calling us directly.",
+    "where is your office": "We're located at 400 NW Gilman Blvd. #787 Issaquah, WA 98027.",
+    "do you do online": "Yes! We offer both in-person and telehealth sessions for your convenience.",
+    "virtual": "Yes! We offer both in-person and telehealth sessions for your convenience.",
+    "telehealth": "Yes! We offer both in-person and telehealth sessions for your convenience.",
+    "video": "Yes! We offer secure video sessions through our HIPAA-compliant platform.",
+    
+    // Confidentiality
+    "confidentiality": "Everything you share is completely confidential and protected by HIPAA. We only break confidentiality in rare cases involving imminent risk of harm, child abuse, or court orders. Your privacy is our priority.",
+    
+    // Medication/Psychiatrist
+    "psychiatrist": "Yes, we have psychiatrists on staff who can prescribe medication if needed. They work collaboratively with our therapists to provide comprehensive care.",
+    
+    // Effectiveness/Duration
+    "effectiveness": "Therapy effectiveness varies by individual, but research shows that most people see significant improvement within 12-20 sessions. Many notice positive changes even sooner!",
+    "duration": "Treatment length varies based on your goals and needs. Some people benefit from short-term therapy (8-12 sessions), while others prefer ongoing support. We'll work with you to determine what's best.",
+    
+    // Wait time
+    "wait": "We typically can schedule new clients within 1-2 weeks. For urgent situations, we sometimes have same-week availability. Contact us to check current availability.",
+    
+    // Previous bad experience
+    "bad experience": "I'm sorry you had a negative experience before. Finding the right therapist fit is so important. We'll work to match you with someone who meets your needs and preferences. Would you like to tell me what would make this experience better?",
+    
+    // Specific issues
+    "panic": "We specialize in panic disorder and panic attacks using proven techniques like CBT and breathing exercises. You don't have to struggle with this alone.",
+    "ocd": "We offer specialized treatment for OCD including Exposure and Response Prevention (ERP), which is highly effective for OCD symptoms.",
+    "ptsd": "We provide trauma-informed care for PTSD including EMDR, which has strong research support for treating trauma symptoms.",
+    "grief": "We offer grief counseling to help you process loss and find healthy ways to cope. Everyone's grief journey is unique, and we'll support yours.",
+    "addiction": "We provide treatment for substance use and behavioral addictions. We can also coordinate with other providers for comprehensive care if needed.",
+    "eating disorder": "We have specialists in eating disorder treatment who use evidence-based approaches. Recovery is possible, and we're here to support you.",
+    "bipolar": "We work with individuals with bipolar disorder, often in coordination with psychiatrists for medication management. Therapy can help with mood stability and coping skills.",
+    "adhd": "We offer support for ADHD including coaching, organizational skills, and coping strategies. We can also coordinate with prescribers if medication is part of your treatment plan.",
+    
+    // Age/population specific
+    "teen": "Yes, we have therapists who specialize in working with teenagers. Teen years can be challenging, and therapy can really help.",
+    "child": "We offer child therapy with specialists trained in play therapy and other child-appropriate approaches.",
+    "couple": "We offer couples therapy to help improve communication, resolve conflicts, and strengthen your relationship.",
+    "family": "Yes, we provide family therapy to help improve family dynamics and communication.",
+    
+    // Greeting & Triage
+    "greeting": "Hi there! Welcome to TheraConnect. How are you feeling today?",
+    "crisis check": "Before we begin, are you or someone you know in immediate danger or having thoughts of harming yourselves? If yes, please call 988 (Suicide & Crisis Lifeline) or 911 immediately.",
+    
+    // Intake
+    "reason": "What brings you to TheraConnect today? Are there any specific issues you'd like to work on?",
+    "experience": "Have you had any previous experience with therapy or counseling? If so, what was that experience like?",
+    "therapy type": "Are you looking for a specific type of therapy, such as CBT (Cognitive Behavioral Therapy) or DBT (Dialectical Behavior Therapy)?",
+    "goals": "What are some of your goals for therapy? For example, are you hoping to manage stress, improve relationships, or develop new coping skills?",
+    "preferences": "Do you have a preference for a therapist's gender, age, or cultural background?",
+    
+    // Specific issues
+    "anxiety": "We specialize in anxiety treatment using evidence-based approaches like CBT. What brings you to seek help for anxiety?",
+    "depression": "We offer comprehensive treatment for depression. Would you like to schedule an appointment to discuss treatment options?",
+    "stress": "Stress management is one of our core specialties. We can help you develop effective coping strategies. Ready to get started?",
+    "relationship": "We offer both individual and couples therapy to help with relationship challenges. What would you like to work on?",
+    "trauma": "We provide trauma-informed care including EMDR and other specialized therapies. We're here to support your healing journey.",
+    
+    // Logistics
+    "schedule": "What times or days of the week work best for your schedule?",
+    "frequency": "How often would you like to have sessions (e.g., weekly, every two weeks)?",
+    "payment": "Are you planning to pay for therapy using insurance or out-of-pocket?",
+    
+    // Support
+    "platform help": "I'm here to help with questions about the platform. Are you looking for information on pricing, how to get started, or something else?",
+    "resources": "Would you like to learn more about a specific mental health topic, like mindfulness or managing anxiety?"
+  };
+  
+  // Synonyms for better matching
+  const SYNONYMS = {
+    // Services
+    "service": "services",
+    "what do you offer": "services",
+    "what do you do": "services",
+    "what can you help with": "services",
+    "what kind of help": "services",
+    "types of therapy": "services",
+    "what therapy": "services",
+    "counseling": "services",
+    "mental health": "services",
+    "need help": "services",
+    
+    // Contact
+    "phone": "contact",
+    "email": "contact",
+    "call": "contact",
+    "reach": "contact",
+    "get in touch": "contact",
+    "contact you": "contact",
+    "talk to someone": "contact",
+    "speak with": "contact",
+    
+    // Location
+    "where located": "location",
+    "where are you": "where are you",
+    "address": "location",
+    "find you": "location",
+    "office": "location",
+    "in person": "location",
+    "come in": "location",
+    "visit": "location",
+    
+    // Pricing
+    "cost": "pricing",
+    "price": "pricing",
+    "how much": "pricing",
+    "expensive": "pricing",
+    "afford": "pricing",
+    "pay": "payment",
+    "money": "pricing",
+    "fee": "pricing",
+    "charge": "pricing",
+    
+    // Appointments
+    "book": "appointments",
+    "schedule": "schedule",
+    "appointment": "appointments",
+    "schedule appointment": "appointments",
+    "make appointment": "appointments",
+    "see someone": "appointments",
+    "meet": "appointments",
+    "session": "appointments",
+    "available": "schedule",
+    "when can i": "schedule",
+    "how soon": "appointments",
+    "wait list": "appointments",
+    "waiting list": "appointments",
+    
+    // Insurance
+    "insurance": "insurance",
+    "insurance accepted": "insurance",
+    "take insurance": "insurance",
+    "accept insurance": "insurance",
+    "covered": "insurance",
+    "my insurance": "insurance",
+    "copay": "insurance",
+    "deductible": "insurance",
+    "out of pocket": "payment",
+    
+    // Hours
+    "hours": "hours",
+    "hours open": "hours",
+    "when open": "hours",
+    "what time": "hours",
+    "open": "hours",
+    "evening": "schedule",
+    "weekend": "schedule",
+    "saturday": "schedule",
+    
+    // Therapy Types
+    "cbt": "therapy type",
+    "dbt": "therapy type",
+    "emdr": "therapy type",
+    "cognitive": "therapy type",
+    "behavioral": "therapy type",
+    "talk therapy": "therapy type",
+    "what kind of therapy": "therapy type",
+    
+    // Getting Started
+    "start": "greeting",
+    "hello": "greeting",
+    "hi": "greeting",
+    "hey": "greeting",
+    "help": "platform help",
+    "how do i": "platform help",
+    "get started": "greeting",
+    "begin": "greeting",
+    "new here": "greeting",
+    "first time": "greeting",
+    "never done this": "greeting",
+    
+    // Matching/Preferences
+    "find therapist": "preferences",
+    "match": "preferences",
+    "right therapist": "preferences",
+    "good fit": "preferences",
+    "therapist for me": "preferences",
+    "male therapist": "preferences",
+    "female therapist": "preferences",
+    "woman therapist": "preferences",
+    "man therapist": "preferences",
+    "specific therapist": "preferences",
+    
+    // Goals
+    "anxiety": "goals",
+    "depressed": "goals",
+    "depression": "goals",
+    "stress": "goals",
+    "stressed": "goals",
+    "relationship": "goals",
+    "trauma": "goals",
+    "cope": "goals",
+    "coping": "goals",
+    "grief": "goals",
+    "loss": "goals",
+    "ptsd": "goals",
+    "panic": "goals",
+    "ocd": "goals",
+    "bipolar": "goals",
+    "adhd": "goals",
+    "eating disorder": "goals",
+    "addiction": "goals",
+    
+    // Frequency
+    "how often": "frequency",
+    "weekly": "frequency",
+    "once a week": "frequency",
+    "twice a week": "frequency",
+    
+    // Experience
+    "tried therapy": "experience",
+    "been to therapy": "experience",
+    "therapist before": "experience",
+    "first therapy": "experience",
+    "never been": "experience",
+    "bad experience": "experience",
+    "didn't work": "experience",
+    
+    // Crisis
+    "emergency": "crisis check",
+    "crisis": "crisis check",
+    "urgent": "crisis check",
+    "immediate": "crisis check",
+    
+    // Resources
+    "learn": "resources",
+    "information": "resources",
+    "tips": "resources",
+    "help with": "resources",
+    
+    // Age/Family specific
+    "teen": "services",
+    "teenager": "services",
+    "child": "services",
+    "kid": "services",
+    "couple": "services",
+    "marriage": "services",
+    "family": "services",
+    
+    // Privacy/Confidentiality
+    "confidential": "confidentiality",
+    "private": "confidentiality",
+    "secret": "confidentiality",
+    "tell anyone": "confidentiality",
+    "who knows": "confidentiality",
+    
+    // Medication
+    "medication": "psychiatrist",
+    "meds": "psychiatrist",
+    "prescribe": "psychiatrist",
+    "antidepressant": "psychiatrist",
+    "psychiatrist": "psychiatrist",
+    
+    // Results/Effectiveness
+    "does it work": "effectiveness",
+    "will it help": "effectiveness",
+    "success rate": "effectiveness",
+    "how long": "duration",
+    "how many sessions": "duration"
+  };
+  
+  // Keywords
+  const KEYWORDS = {
+    suicide: [
+      // Direct suicide mentions
+      "suicide", "suicidal", "suide", "suidal", "end my life", "kill myself", 
+      "harm myself", "self harm", "self-harm", "hurt myself", "overdose", "od", 
+      "cut myself", "i want to die", "want to die", "unalive myself", "off myself", 
+      "hang", "hanging", "hang myself", "hanged", "hung myself",
+      
+      // Pills and overdose related
+      "pills", "take all my pills", "whole bottle", "swallow pills", "overdose on",
+      "too many pills", "end it with pills",
+      
+      // Passive ideation
+      "better off dead", "no point living", "no reason to live", "can't go on",
+      "don't want to be here", "wish i was dead", "wish i wasn't born",
+      "everyone would be better without me", "burden to everyone", "no point anymore",
+      "give up on life", "rather be dead", "not worth living",
+      
+      // Methods (general)
+      "jump off", "jump from", "drive off", "crash my car", "step in front",
+      
+      // Direct statements
+      "going to kill", "plan to die", "ready to die", "tonight's the night",
+      "writing goodbye", "last time", "final message", "won't be here tomorrow",
+      "saying goodbye", "tie a noose", "noose"
+    ],
+    
+    depression: [
+      // Direct depression terms
+      "depressed", "depression", "so sad", "can't stop crying", "crying all the time",
+      "feel hopeless", "hopeless", "helpless", "feel empty", "empty inside",
+      "numb", "feel nothing", "don't feel anything", "can't feel",
+      
+      // Functioning issues
+      "can't get out of bed", "sleeping all day", "can't sleep", "no energy",
+      "too tired", "exhausted", "no motivation", "don't care anymore",
+      "lost interest", "nothing makes me happy", "can't enjoy",
+      
+      // Isolation
+      "alone", "lonely", "no one cares", "nobody understands", "isolated",
+      "pushing everyone away", "no friends", "all by myself",
+      
+      // Dark thoughts
+      "dark thoughts", "dark place", "spiraling", "getting worse",
+      "can't cope", "falling apart", "breaking down", "lost"
+    ],
+    
+    violence: [
+      "gun", "guns", "weapon", "knife", "knives", "violence", "violent", 
+      "shot", "shooting", "shooter", "active shooter", "stabbing"
+    ]
+  };
+  
+  // Quick Chips
+  const CHIPS = [
+    { label: 'Start', key: 'greeting' },
+    { label: 'Crisis Check', key: 'crisis check' },
+    { label: 'Services', key: 'services' },
+    { label: 'Pricing', key: 'pricing' },
+    { label: 'Appointments', key: 'appointments' },
+    { label: 'Insurance', key: 'insurance' },
+    { label: 'Location', key: 'location' },
+    { label: 'Get Matched', key: 'reason' }
+  ];
+  
+  // Chatbot Class
+  class ChatBot {
+    constructor() {
+      this.elements = {
+        toggle: document.getElementById('chat-toggle'),
+        window: document.getElementById('chat-window'),
+        close: document.getElementById('chat-close'),
+        messages: document.getElementById('chat-messages'),
+        input: document.getElementById('chat-input'),
+        send: document.getElementById('chat-send'),
+        chips: document.getElementById('quick-replies'),
+        clear: document.getElementById('clear-chat')
+      };
+      
+      this.state = {
+        isOpen: false,
+        lastCrisisTime: 0,
+        history: [],
+        hasWelcomed: false
+      };
+      
+      this.init();
+    }
+    
+    init() {
+      this.loadHistory();
+      this.setupEvents();
+      // Don't render chips until chat is opened
+    }
+    
+    setupEvents() {
+      // Toggle
+      this.elements.toggle.onclick = () => this.open();
+      
+      // Close button - multiple event types for reliability
+      if (this.elements.close) {
+        this.elements.close.onclick = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this.close();
+          return false;
+        };
+        
+        this.elements.close.addEventListener('click', (e) => {
+          e.preventDefault();
+          this.close();
+        });
+      }
+      
+      // Send
+      this.elements.send.onclick = () => this.send();
+      
+      // Input
+      this.elements.input.oninput = () => {
+        this.autosize();
+        this.elements.send.disabled = !this.elements.input.value.trim();
+      };
+      
+      this.elements.input.onkeydown = (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          this.send();
+        }
+      };
+      
+      // Clear
+      this.elements.clear.onclick = () => this.clearHistory();
+      
+      // Escape
+      document.onkeydown = (e) => {
+        if (e.key === 'Escape' && this.state.isOpen) {
+          this.close();
+        }
+      };
+    }
+    
+    open() {
+      this.state.isOpen = true;
+      this.elements.window.hidden = false;
+      this.elements.window.style.display = 'flex';
+      this.elements.input.focus();
+      console.log('Chat opened');
+      
+      // Prevent body scroll on mobile
+      document.body.classList.add('chat-open');
+      
+      // Don't show welcome or chips automatically
+    }
+    
+    close() {
+      this.state.isOpen = false;
+      this.elements.window.hidden = true;
+      this.elements.window.style.display = 'none';
+      console.log('Chat closed');
+      
+      // Re-enable body scroll on mobile
+      document.body.classList.remove('chat-open');
+    }
+    
+    send() {
+      const text = this.elements.input.value.trim();
+      if (!text) return;
+      
+      this.addUser(text);
+      this.elements.input.value = '';
+      this.autosize();
+      this.elements.send.disabled = true;
+      
+      const response = this.getResponse(text);
+      this.addBot(response.text, response.crisis);
+      
+      // Show chips after first interaction
+      if (this.elements.chips.innerHTML === '') {
+        this.renderChips();
+      }
+    }
+    
+    addUser(text) {
+      this.addMessage('user', text);
+    }
+    
+    addBot(text, crisis = false) {
+      this.showTyping();
+      setTimeout(() => {
+        this.hideTyping();
+        this.addMessage('bot', text, crisis);
+      }, CONFIG.TYPING_DELAY_MS);
+    }
+    
+    addMessage(role, text, crisis = false) {
+      const msg = document.createElement('div');
+      msg.className = `msg ${role}${crisis ? ' crisis' : ''}`;
+      
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble';
+      bubble.innerHTML = this.sanitize(text) + 
+        `<span class="timestamp">${this.getTime()}</span>`;
+      
+      msg.appendChild(bubble);
+      this.elements.messages.appendChild(msg);
+      this.scroll();
+      
+      this.state.history.push({ role, text, crisis });
+      this.saveHistory();
+    }
+    
+    showTyping() {
+      const msg = document.createElement('div');
+      msg.className = 'msg bot';
+      msg.id = 'typing';
+      
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble';
+      bubble.innerHTML = '<div class="typing-indicator"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>';
+      
+      msg.appendChild(bubble);
+      this.elements.messages.appendChild(msg);
+      this.scroll();
+    }
+    
+    hideTyping() {
+      const typing = document.getElementById('typing');
+      if (typing) typing.remove();
+    }
+    
+    getResponse(text) {
+      const lower = text.toLowerCase();
+      
+      // Violence check (highest priority)
+      if (KEYWORDS.violence.some(k => lower.includes(k))) {
+        return { text: CRISIS.violence, crisis: true };
+      }
+      
+      // Suicide/self-harm check
+      if (KEYWORDS.suicide.some(k => lower.includes(k))) {
+        const now = Date.now();
+        if (now - this.state.lastCrisisTime > CRISIS_COOLDOWN_MS) {
+          this.state.lastCrisisTime = now;
+          return { 
+            text: CRISIS.full[Math.floor(Math.random() * CRISIS.full.length)], 
+            crisis: true 
+          };
+        }
+        return { text: CRISIS.short, crisis: true };
+      }
+      
+      // Depression check (supportive response with crisis info)
+      if (KEYWORDS.depression.some(k => lower.includes(k))) {
+        return { 
+          text: "I'm really sorry you're going through this. What you're feeling is valid, and you don't have to face it alone. We're here to help.\n\nIf you're in crisis or need immediate support, please call 988 (Suicide & Crisis Lifeline) anytime.\n\nWould you like to learn about our therapy services or book an appointment?" 
+        };
+      }
+      
+      // Check for /start command
+      if (lower === '/start') {
+        return { text: RESPONSES.greeting };
+      }
+      
+      // Try synonyms first
+      for (const [synonym, key] of Object.entries(SYNONYMS)) {
+        if (lower.includes(synonym) && RESPONSES[key]) {
+          return { text: RESPONSES[key] };
+        }
+      }
+      
+      // Check direct response keys
+      for (const [key, response] of Object.entries(RESPONSES)) {
+        if (lower.includes(key)) {
+          return { text: response };
+        }
+      }
+      
+      // Token-based fuzzy matching
+      const tokens = lower.split(/\s+/).filter(Boolean);
+      let bestMatch = null;
+      let bestScore = 0;
+      
+      for (const [key, response] of Object.entries(RESPONSES)) {
+        let score = 0;
+        const keyTokens = key.split(/\s+/);
+        
+        for (const token of tokens) {
+          if (keyTokens.some(kt => kt.includes(token) || token.includes(kt))) {
+            score++;
+          }
+        }
+        
+        if (score > bestScore) {
+          bestScore = score;
+          bestMatch = response;
+        }
+      }
+      
+      if (bestScore > 0 && bestMatch) {
+        return { text: bestMatch };
+      }
+      
+      // Default fallback
+      return { 
+        text: "I'm not sure how to help with that yet. Try one of the options below, or type /start to begin intake." 
+      };
+    }
+    
+    renderChips() {
+      this.elements.chips.innerHTML = '';
+      CHIPS.forEach(({ label, key }) => {
+        const btn = document.createElement('button');
+        btn.className = 'chip';
+        btn.textContent = label;
+        btn.onclick = () => {
+          this.addUser(label);
+          this.addBot(RESPONSES[key]);
+        };
+        this.elements.chips.appendChild(btn);
+      });
+    }
+    
+    autosize() {
+      const el = this.elements.input;
+      el.rows = 1;
+      const rows = Math.max(1, Math.min(5, Math.ceil(el.scrollHeight / 24)));
+      el.rows = rows;
+    }
+    
+    scroll() {
+      requestAnimationFrame(() => {
+        this.elements.messages.scrollTop = this.elements.messages.scrollHeight;
+      });
+    }
+    
+    sanitize(text) {
+      const div = document.createElement('div');
+      div.innerText = text;
+      return div.innerHTML.replace(/\n/g, '<br>');
+    }
+    
+    getTime() {
+      return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    
+    saveHistory() {
+      try {
+        localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(this.state.history));
+      } catch (e) {
+        console.warn('Failed to save:', e);
+      }
+    }
+    
+    loadHistory() {
+      try {
+        const data = localStorage.getItem(CONFIG.STORAGE_KEY);
+        if (data) {
+          this.state.history = JSON.parse(data);
+          this.state.history.forEach(({ role, text, crisis }) => {
+            const msg = document.createElement('div');
+            msg.className = `msg ${role}${crisis ? ' crisis' : ''}`;
+            const bubble = document.createElement('div');
+            bubble.className = 'bubble';
+            bubble.innerHTML = this.sanitize(text);
+            msg.appendChild(bubble);
+            this.elements.messages.appendChild(msg);
+          });
+        }
+      } catch (e) {
+        console.warn('Failed to load:', e);
+      }
+    }
+    
+    clearHistory() {
+      if (confirm('Clear conversation history?')) {
+        this.state.history = [];
+        this.elements.messages.innerHTML = '';
+        localStorage.removeItem(CONFIG.STORAGE_KEY);
+        this.state.hasWelcomed = false;
+      }
+    }
+  }
+  
+  // Initialize
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => new ChatBot());
+  } else {
+    new ChatBot();
+  }
+  
+})();
+</script>
+
+</body>
+</html>
